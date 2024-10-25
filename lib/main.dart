@@ -30,15 +30,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  ///========================= Google Sign-In Method========================
+  ///============================Google Sign in method ======================
   Future<void> googleSignIn() async {
     try {
       final user = await GoogleSignInService.login();
       final GoogleSignInAuthentication? googleAuth = await user?.authentication;
 
-      log('User name===================: ${user!.displayName}, Email:================= ${user.email}');
+      log('User name: ===================${user!.displayName}, Email:====================== ${user.email}');
 
-      // Obtain an authenticated client to access Google Calendar
       final httpClient = await obtainAuthenticatedClient(googleAuth!);
       if (httpClient != null) {
         log("====================Authentication successful!==================");
@@ -54,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Obtains an authenticated HTTP client for API requests
   Future<http.Client?> obtainAuthenticatedClient(
       GoogleSignInAuthentication googleAuth) async {
     try {
@@ -68,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (e) {
-      log('Client authentication failed: $e');
+      log('==============Client authentication failed:================== $e');
       return null;
     }
   }
@@ -85,8 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       backgroundColor: Colors.white,
-
-      ///==================================Google Sign in button =================
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
         child: GestureDetector(
@@ -130,28 +126,41 @@ class AddEventScreen extends StatefulWidget {
 
 class _AddEventScreenState extends State<AddEventScreen> {
   final _noteController = TextEditingController();
-  DateTime? _selectedDate;
+  DateTime? _selectedDateTime;
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDateTime() async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
+
     if (pickedDate != null) {
-      setState(() {
-        _selectedDate = pickedDate;
-      });
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
     }
   }
 
-  /// ================Function to add an event to Google Calendar======================
   Future<void> addEventToGoogleCalendar() async {
-    if (_selectedDate == null || _noteController.text.isEmpty) {
+    if (_selectedDateTime == null || _noteController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a note and select a date'),
+          content: Text('Please enter a note and select a date and time'),
           backgroundColor: Colors.red,
         ),
       );
@@ -161,28 +170,22 @@ class _AddEventScreenState extends State<AddEventScreen> {
     try {
       var calendarApi = calendar.CalendarApi(widget.client);
 
-      // Set the start and end time for the event
-      final eventStart = _selectedDate!.add(const Duration(
-          hours: 9)); // Event starts at 9:00 AM on the selected date
-      final eventEnd =
-          eventStart.add(const Duration(hours: 1)); // Event lasts for 1 hour
+      final eventStart = _selectedDateTime!;
+      final eventEnd = eventStart.add(const Duration(hours: 1));
 
-      // Create the event
       var event = calendar.Event()
         ..summary = _noteController.text
         ..description = 'Event created from Flutter app'
         ..start = calendar.EventDateTime(dateTime: eventStart)
         ..end = calendar.EventDateTime(dateTime: eventEnd);
 
-      // Insert the event into Google Calendar
       final insertedEvent = await calendarApi.events.insert(event, 'primary');
-      log('========================Event added to calendar with ID:===================== ${insertedEvent.id}');
+      log('==================Event added to calendar with ID: =================${insertedEvent.id}');
 
-      ///===========================Show Snackbar================
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content:
-              Text('Event added successfully for ${_selectedDate!.toLocal()}'),
+          Text('Event added successfully for ${_selectedDateTime!.toLocal()}'),
           backgroundColor: Colors.green,
         ),
       );
@@ -202,14 +205,16 @@ class _AddEventScreenState extends State<AddEventScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text('Add Event to Calendar',style: TextStyle(color: Colors.white),),
+        title: const Text(
+          'Add Event to Calendar',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ///=============================Event Add field========================
             TextField(
               controller: _noteController,
               decoration: const InputDecoration(
@@ -218,31 +223,23 @@ class _AddEventScreenState extends State<AddEventScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            ///=================================Select Date====================
             Center(
               child: ElevatedButton(
-                onPressed: _pickDate,
-                child: const Text('Select Date'),
+                onPressed: _pickDateTime,
+                child: const Text('Select Date & Time'),
               ),
             ),
-            const SizedBox(
-              height: 30,
-            ),
+            const SizedBox(height: 30),
             Text(
-              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
-              _selectedDate == null
-                  ? 'No date selected'
-                  : 'Selected Date: ${_selectedDate!.toLocal()}',
+              style: const TextStyle(
+                  color: Colors.blue, fontWeight: FontWeight.w500),
+              _selectedDateTime == null
+                  ? 'No date and time selected'
+                  : 'Selected Date & Time: ${_selectedDateTime!.toLocal()}',
             ),
-
-
             const Spacer(),
-
-            ///=================================Google Calender Add Button=====================
             Center(
               child: ElevatedButton(
-
                 onPressed: addEventToGoogleCalendar,
                 child: const Text('Add to Google Calendar'),
               ),
